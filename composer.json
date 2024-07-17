@@ -1,0 +1,21 @@
+{
+    "name": "reynotech/laravel-query-builder-custom",
+    "description": "custom",
+    "type": "library",
+    "license" : "MIT",
+    "require": {
+        "spatie/laravel-query-builder": "^6.0",
+        "php": "^8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "ReynoTECH\\QueryBuilderCustom\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Samuel Casas",
+            "email": "samuel@reyno.tech"
+        }
+    ]
+}
