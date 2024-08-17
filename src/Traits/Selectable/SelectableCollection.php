@@ -1,4 +1,4 @@
-<?php namespace App\Models\Traits\Selectable;
+<?php namespace ReynoTECH\QueryBuilderCustom\Traits\Selectable;
 
 class SelectableCollection extends \Illuminate\Database\Eloquent\Collection
 {
