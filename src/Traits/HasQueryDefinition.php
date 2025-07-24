@@ -1,6 +1,5 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Traits;
 
-use App\Models\Extinguisher;
 use ReynoTECH\QueryBuilderCustom\Filters\DateFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\StringAdvancedFilter;
 use ReynoTECH\QueryBuilderCustom\Traits\Builders\DistinctValuesQueryBuilder;
@@ -184,11 +183,9 @@ trait HasQueryDefinition
             else {
                 $internal = array_key_exists('internal', $def) ? self::processInternalName($def['internal'], $field) : null;
                 if (array_key_exists('filter', $def)) {
-                    if ($def['filter'] instanceof \Closure) {
-                        $filters[] = AllowedFilter::callback($field, $def['filter'], $internal);
-                    } else {
-                        $filters[] = AllowedFilter::custom($field, $def['filter'], $internal);
-                    }
+                    $filters[] = AllowedFilter::custom($field, $def['filter'] instanceof \Closure ? $def['filter']() : $def['filter'], $internal);
+                } else if (array_key_exists('cfilter', $def)) {
+                    $filters[] = AllowedFilter::callback($field, $def['cfilter'], $internal);
                 } else {
                     $filters[] = AllowedFilter::custom($field, $defaultFilter, $internal);
                 }
@@ -219,6 +216,13 @@ trait HasQueryDefinition
         return !str_contains($name, '.')  ? $name.'.'.$field : $name;
     }
 
+    public static function queryDefinitionsFromArray($defs)
+    {
+        $filters = self::processFilters($defs);
+        $sorts = self::processSorts($defs);
+
+        return [$filters, $sorts];
+    }
 
     public function newEloquentBuilder($query)
     {
