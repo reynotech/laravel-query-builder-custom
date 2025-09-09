@@ -1,5 +1,6 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Filters;
 
+use DateTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -11,22 +12,25 @@ class DateFilter implements Filter
 
     public function getFilters()
     {
-        $soloFormat = config('app.date_format_mysql_solo', '%d/%m/%y');
+        $soloFormat = config('app.date_format_solo', 'd/m/Y');
 
         return [
             'eq' => [
                 'query' => function($query, $value, $property) use ($soloFormat) {
                     $query->whereRaw(
-                        "DATE_FORMAT($property,'$soloFormat') = ?",
-                        [$value[0]]
+                        "DATE({$query->getGrammar()->wrap($property)}) = ?",
+                        [DateTime::createFromFormat($soloFormat, $value[0])->format('Y-m-d')]
                     );
                 }
             ],
             'bw' => [
                 'query' => function($query, $value, $property) use ($soloFormat) {
                     $query->whereRaw(
-                        "DATE_FORMAT($property,'$soloFormat') between ? and ?",
-                        [$value[0], $value[1]]
+                        "DATE({$query->getGrammar()->wrap($property)},'$soloFormat') between ? and ?",
+                        [
+                            DateTime::createFromFormat($soloFormat, $value[0])->format('Y-m-d'),
+                            DateTime::createFromFormat($soloFormat, $value[1])->format('Y-m-d')
+                        ]
                     );
                 }
             ],
@@ -46,7 +50,7 @@ class DateFilter implements Filter
     {
         $filters = $this->getFilters();
 
-        list($operation, $value) = $value;
+        [$operation, $value] = $value;
 
         $value = explode('|', $value);
 

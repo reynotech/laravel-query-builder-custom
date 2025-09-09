@@ -1,5 +1,6 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Traits;
 
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use ReynoTECH\QueryBuilderCustom\Filters\DateFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\StringAdvancedFilter;
 use ReynoTECH\QueryBuilderCustom\Traits\Builders\DistinctValuesQueryBuilder;
@@ -136,11 +137,11 @@ trait HasQueryDefinition
         $sorts = self::processSorts($defs);
 
         $addons = array_merge([
-                'dates' => [
-                    'created_at' => ['filter' => new DateFilter(), 'sort' => true],
-                    'updated_at' => ['filter' => new DateFilter(), 'sort' => true],
-                ]
-            ],
+            'dates' => [
+                'created_at' => ['filter' => new DateFilter(), 'sort' => true],
+                'updated_at' => ['filter' => new DateFilter(), 'sort' => true],
+            ]
+        ],
             method_exists(self::class, 'queryAddons') ? with(new self)->queryAddons($getTableName) : []
         );
 
@@ -199,9 +200,11 @@ trait HasQueryDefinition
         $sorts = [];
 
         foreach ($defs as $field => $def) {
-            if (array_key_exists('sort', $def)) {
-                $internal = array_key_exists('internal', $def) ? self::processInternalName($def['internal'], $field) : null;
+            $internal = array_key_exists('internal', $def) ? self::processInternalName($def['internal'], $field) : null;
 
+            if (array_key_exists('csort', $def)) {
+                $sorts[] = AllowedSort::callback($field, $def['csort']);
+            } else if (array_key_exists('sort', $def)) {
                 if ($def['sort']) {
                     $sorts[] = $internal ? AllowedSort::field($field, $internal) : $field;
                 }
@@ -213,7 +216,8 @@ trait HasQueryDefinition
 
     public static function processInternalName($name, $field)
     {
-        return !str_contains($name, '.')  ? $name.'.'.$field : $name;
+        if ($name instanceof \Closure) return $name();
+        return !str_contains($name, '.')  ? $name . '.' . $field : $name;
     }
 
     public static function queryDefinitionsFromArray($defs)
