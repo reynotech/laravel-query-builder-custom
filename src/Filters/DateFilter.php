@@ -34,6 +34,18 @@ class DateFilter implements Filter
                     );
                 }
             ],
+            'null' => [
+                'solo' => true,
+                'query' => function($query, $value, $property) {
+                    $query->whereNull($property);
+                }
+            ],
+            'nnull' => [
+                'solo' => true,
+                'query' => function($query, $value, $property) {
+                    $query->whereNotNull($property);
+                }
+            ],
         ];
     }
 
