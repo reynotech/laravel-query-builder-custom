@@ -25,8 +25,10 @@ class DateFilter implements Filter
             ],
             'bw' => [
                 'query' => function($query, $value, $property) use ($soloFormat) {
+                    $value = str_contains($value[0], ',') ? explode(',', $value[0]) : $value[0];
+
                     $query->whereRaw(
-                        "DATE({$query->getGrammar()->wrap($property)},'$soloFormat') between ? and ?",
+                        "DATE({$query->getGrammar()->wrap($property)}) between ? and ?",
                         [
                             DateTime::createFromFormat($soloFormat, $value[0])->format('Y-m-d'),
                             DateTime::createFromFormat($soloFormat, $value[1])->format('Y-m-d')
