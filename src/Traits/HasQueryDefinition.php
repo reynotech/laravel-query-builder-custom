@@ -132,14 +132,14 @@ trait HasQueryDefinition
             }
         };
 
-        $defs = with(new self)->queryFilters($getTableName);
+        $defs = method_exists(self::class, 'queryFilters') ? with(new self)->queryFilters($getTableName) : [];
         $filters = self::processFilters($defs);
         $sorts = self::processSorts($defs);
 
         $addons = array_merge([
             'dates' => [
-                'created_at' => ['filter' => new DateFilter(), 'sort' => true],
-                'updated_at' => ['filter' => new DateFilter(), 'sort' => true],
+                'created_at' => ['filter' => DateFilter::class, 'sort' => true],
+                'updated_at' => ['filter' => DateFilter::class, 'sort' => true],
             ]
         ],
             method_exists(self::class, 'queryAddons') ? with(new self)->queryAddons($getTableName) : []
@@ -184,7 +184,8 @@ trait HasQueryDefinition
             else {
                 $internal = array_key_exists('internal', $def) ? self::processInternalName($def['internal'], $field) : null;
                 if (array_key_exists('filter', $def)) {
-                    $filters[] = AllowedFilter::custom($field, $def['filter'] instanceof \Closure ? $def['filter']() : $def['filter'], $internal);
+                    $interpret = is_string($def['filter']) && class_exists($def['filter']) ? new $def['filter'] : $def['filter'];
+                    $filters[] = AllowedFilter::custom($field, $def['filter'] instanceof \Closure ? $def['filter']() : $interpret, $internal);
                 } else if (array_key_exists('cfilter', $def)) {
                     $filters[] = AllowedFilter::callback($field, $def['cfilter'], $internal);
                 } else {
