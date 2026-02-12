@@ -1,14 +1,10 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Filters;
 
 use DateTime;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-use Spatie\QueryBuilder\Filters\Filter;
 
-class DateFilter implements Filter
+class DateFilter extends BaseAdvancedFilter
 {
-    protected $default = 'eq';
+    protected string $default = 'eq';
 
     public function getFilters()
     {
@@ -51,15 +47,6 @@ class DateFilter implements Filter
         ];
     }
 
-    public function __invoke(Builder $query, $value, string $property)
-    {
-        if (!is_array($value)) {
-            $this->processQuery($query, [$this->default, $value], $property);
-        } else {
-            $this->processQuery($query, $value, $property);
-        }
-    }
-
     public function processQuery($query, $value, $property)
     {
         $filters = $this->getFilters();
@@ -68,10 +55,10 @@ class DateFilter implements Filter
 
         $value = explode('|', $value);
 
-        if($filters[$operation]) {
-            $operation = $filters[$operation];
-
-            $operation['query']($query, $value, $property);
+        if (!array_key_exists($operation, $filters)) {
+            return;
         }
+
+        $filters[$operation]['query']($query, $value, $property);
     }
 }

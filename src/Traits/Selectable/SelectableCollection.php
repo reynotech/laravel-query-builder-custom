@@ -3,15 +3,12 @@
 class SelectableCollection extends \Illuminate\Database\Eloquent\Collection
 {
     public $class;
-    public $prependVal;
 
     public function __construct($items = [], $class = null)
     {
         parent::__construct($items);
 
         $this->class = $class;
-
-        $this->prependVal = 'Selecciona Uno';
     }
 
     public function toSelect($type = null)

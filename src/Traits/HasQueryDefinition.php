@@ -60,7 +60,7 @@ trait HasQueryDefinition
             return array_merge($def[$what], $all);
         }
 
-        return array_merge($def[$what], $add);
+        return $def[$what];
     }
 
     public static function tableQueryDefinition($what, $add = []): array

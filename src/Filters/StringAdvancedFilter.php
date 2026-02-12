@@ -1,12 +1,10 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Filters;
 
 use Closure;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Spatie\QueryBuilder\Filters\Filter;
 
-class StringAdvancedFilter implements Filter
+class StringAdvancedFilter extends BaseAdvancedFilter
 {
     protected string $default = 'con';
 
@@ -64,48 +62,41 @@ class StringAdvancedFilter implements Filter
         ];
     }
 
-    public function __invoke(Builder $query, $value, string $property): void
-    {
-        if (!is_array($value)) {
-            $this->processQuery($query, [$this->default, $value], $property);
-        } else {
-            $this->processQuery($query, $value, $property);
-        }
-    }
-
     public function processQuery($query, $value, $property)
     {
         $filters = $this->getFilters();
-        list($operation, $value) = $value;
+        [$operation, $value] = $value;
 
-        if($filters[$operation]) {
-            $operation = $filters[$operation];
+        if (!array_key_exists($operation, $filters)) {
+            return;
+        }
 
-            if (array_key_exists('query', $operation)) {
-                $operation['query']($query, $value, $property);
+        $operation = $filters[$operation];
+
+        if (array_key_exists('query', $operation)) {
+            $operation['query']($query, $value, $property);
+        } else {
+            if (isset($operation['rawString'])) {
+                $occurrences = [
+                    ':col:' => $property,
+                ];
+                $query->where(DB::raw(strtr($operation['string'], $occurrences)));
+            } else if ($operation['op'] === 'in') {
+                $query->whereIn($property, explode(',', $value));
             } else {
-                if (isset($operation['rawString'])) {
-                    $occurrences = [
-                        ':col:' => $property,
-                    ];
-                    $query->where(DB::raw(strtr($operation['string'], $occurrences)));
-                } else if ($operation['op'] === 'in') {
-                    $query->whereIn($property, explode(',', $value));
+                if (isset($operation['raw'])) {
+                    $op = DB::raw($operation['op']);
                 } else {
-                    if (isset($operation['raw'])) {
-                        $op = DB::raw($operation['op']);
-                    } else {
-                        $op = $operation['op'];
-                    }
-
-                    if (isset($operation['string'])) {
-                        $val = Str::replaceArray('?', [$value], $operation['string']);
-                    } else {
-                        $val = $value;
-                    }
-
-                    $query->where($property, $op, $val);
+                    $op = $operation['op'];
                 }
+
+                if (isset($operation['string'])) {
+                    $val = Str::replaceArray('?', [$value], $operation['string']);
+                } else {
+                    $val = $value;
+                }
+
+                $query->where($property, $op, $val);
             }
         }
     }

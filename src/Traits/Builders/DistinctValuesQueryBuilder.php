@@ -8,13 +8,19 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class DistinctValuesQueryBuilder extends Builder
 {
-    protected bool $hasDistinctValues = false;
-    protected \Closure $distinctPreQuery;
-    protected $distinctFilter = StringAdvancedFilter::class;
+    protected ?\Closure $distinctPreQuery = null;
+    protected $distinctFilter = null;
 
-    public function hasDistinctValues($preQuery = false, $filterer = new StringAdvancedFilter): static
+    public function hasDistinctValues($preQuery = null, $filterer = null): static
     {
-        $this->hasDistinctValues = true;
+        if ($preQuery instanceof \Closure) {
+            $this->distinctPreQuery = $preQuery;
+        }
+
+        if ($filterer) {
+            $this->distinctFilter = $filterer;
+        }
+
         return $this;
     }
 
@@ -22,7 +28,16 @@ class DistinctValuesQueryBuilder extends Builder
     {
         $request = Request::capture();
         if ($request->input('_dist')) {
-            $filterer = new StringAdvancedFilter;
+            if ($this->distinctPreQuery) {
+                ($this->distinctPreQuery)($this);
+            }
+
+            $filterer = $this->distinctFilter;
+            if (!$filterer) {
+                $filterer = new StringAdvancedFilter;
+            } else if (is_string($filterer) && class_exists($filterer)) {
+                $filterer = new $filterer;
+            }
             $field = $request->input('_dist');
 
             $filter = $request->input('_fdist');
@@ -62,10 +77,5 @@ class DistinctValuesQueryBuilder extends Builder
 
 
         return parent::paginate($perPage, $columns, $pageName, $page, $total);
-    }
-
-    private function processDistinctValues()
-    {
-
     }
 }
