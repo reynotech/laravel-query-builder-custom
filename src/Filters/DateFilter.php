@@ -33,6 +33,25 @@ class DateFilter extends BaseAdvancedFilter
         return [(int) $date->format('n'), (int) $date->format('Y')];
     }
 
+    private function applyMonthYearFilter($query, $property, ?string $value, bool $nullIsNull): void
+    {
+        if ($nullIsNull && ($value === null || $value === 'null')) {
+            $query->whereNull($property);
+            return;
+        }
+        $parsed = $this->parseMonthYear($value);
+        if ($parsed === null) {
+            return;
+        }
+        [$month, $year] = $parsed;
+        $column = $query->getGrammar()->wrap($property);
+
+        $query->whereRaw(
+            "MONTH({$column}) = ? AND YEAR({$column}) = ?",
+            [$month, $year]
+        );
+    }
+
     private function createDateFromFormat(string $format, ?string $value): ?DateTime
     {
         if ($value === null || $value === '') {
@@ -186,17 +205,12 @@ class DateFilter extends BaseAdvancedFilter
             ],
             'my' => [
                 'query' => function($query, $value, $property) {
-                    $parsed = $this->parseMonthYear($value[0]);
-                    if ($parsed === null) {
-                        return;
-                    }
-                    [$month, $year] = $parsed;
-                    $column = $query->getGrammar()->wrap($property);
-
-                    $query->whereRaw(
-                        "MONTH({$column}) = ? AND YEAR({$column}) = ?",
-                        [$month, $year]
-                    );
+                    $this->applyMonthYearFilter($query, $property, $value[0] ?? null, false);
+                }
+            ],
+            'myn' => [
+                'query' => function($query, $value, $property) {
+                    $this->applyMonthYearFilter($query, $property, $value[0] ?? null, true);
                 }
             ],
             'bmy' => [
