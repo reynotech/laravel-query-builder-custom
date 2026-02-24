@@ -2,7 +2,7 @@
 
 namespace ReynoTECH\QueryBuilderCustom\Casts;
 
-class DateCast extends BaseDateCast
+class MongoDateCast extends BaseMongoDateCast
 {
     public const SETPARSED = self::class . ':true';
     public const SETONLYMONTHYEAR = self::class . ':true,m/Y,m/Y';
@@ -13,8 +13,16 @@ class DateCast extends BaseDateCast
 
     protected function getCastConfig(): array
     {
-        $config = config('query_builder_custom.casts.date', []);
+        $date = config('query_builder_custom.casts.date', []);
+        $mongo = config('query_builder_custom.casts.mongo', []);
 
-        return is_array($config) ? $config : [];
+        if (!is_array($date)) {
+            $date = [];
+        }
+        if (!is_array($mongo)) {
+            $mongo = [];
+        }
+
+        return array_merge(['set_parsing_default' => true], $date, $mongo);
     }
 }

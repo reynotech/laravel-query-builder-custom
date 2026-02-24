@@ -15,10 +15,21 @@
             "ReynoTECH\\QueryBuilderCustom\\": "src/"
         }
     },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ReynoTECH\\QueryBuilderCustom\\QueryBuilderCustomServiceProvider"
+            ]
+        }
+    },
     "autoload-dev": {
         "psr-4": {
             "ReynoTECH\\QueryBuilderCustom\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:mysql": "bash scripts/test-mysql.sh"
     },
     "authors": [
         {

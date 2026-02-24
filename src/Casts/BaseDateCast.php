@@ -16,11 +16,22 @@ abstract class BaseDateCast implements CastsAttributes
     protected string $configKey;
     protected string $configFallback;
 
-    public function __construct(bool|string|null $setParsing = false, string|bool|null $getFormat = null, string|bool|null $setFormat = null)
+    public function __construct(bool|string|null $setParsing = null, string|bool|null $getFormat = null, string|bool|null $setFormat = null)
     {
-        $this->setParsing = $this->parseBoolean($setParsing);
-        $this->getFormat = $this->resolveFormat($getFormat);
-        $this->setFormat = $this->resolveFormat($setFormat);
+        $config = $this->getCastConfig();
+        $setParsingDefault = $config['set_parsing_default'] ?? $this->setParsing;
+        $this->setParsing = $this->parseBoolean($setParsing ?? $setParsingDefault);
+
+        $configGetFormat = $config['get_format'] ?? null;
+        $configSetFormat = $config['set_format'] ?? null;
+
+        $this->getFormat = $this->resolveFormat($getFormat ?? $configGetFormat);
+        $this->setFormat = $this->resolveFormat($setFormat ?? $configSetFormat);
+
+        $storageFormat = $config['storage_format'] ?? null;
+        if (is_string($storageFormat) && $storageFormat !== '') {
+            $this->storageFormat = $storageFormat;
+        }
     }
 
     /**
@@ -77,7 +88,7 @@ abstract class BaseDateCast implements CastsAttributes
         return $carbon->translatedFormat($format);
     }
 
-    protected function formatDateForStorage($date, ?string $originFormat): ?string
+    protected function formatDateForStorage($date, ?string $originFormat): mixed
     {
         $carbon = $this->toCarbon($date, $originFormat);
         if ($carbon === null) {
@@ -155,6 +166,11 @@ abstract class BaseDateCast implements CastsAttributes
         }
 
         return (string) $format;
+    }
+
+    protected function getCastConfig(): array
+    {
+        return [];
     }
 
     protected function parseBoolean(bool|string|null $value): bool

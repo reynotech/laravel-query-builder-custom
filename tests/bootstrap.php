@@ -21,3 +21,29 @@ if (!function_exists('config')) {
         return $GLOBALS['__test_config'][$key] ?? $default;
     }
 }
+
+if (!function_exists('app')) {
+    function app(string $class)
+    {
+        return new $class();
+    }
+}
+
+if (!function_exists('abort')) {
+    function abort(int $code, string $message = '')
+    {
+        throw new RuntimeException($message ?: 'Aborted.', $code);
+    }
+}
+
+if (!function_exists('request')) {
+    function request()
+    {
+        return new class {
+            public function input(string $key)
+            {
+                return null;
+            }
+        };
+    }
+}

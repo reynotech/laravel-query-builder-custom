@@ -10,7 +10,7 @@ class StringAdvancedFilter extends BaseAdvancedFilter
 
     protected ?Closure $closuredQuery = null;
 
-    public function __construct(Closure $query = null)
+    public function __construct(?Closure $query = null)
     {
         $this->closuredQuery = $query;
     }
@@ -19,7 +19,7 @@ class StringAdvancedFilter extends BaseAdvancedFilter
     {
         $likeFn = fn($cond = 'LIKE', $par = null) => fn($query, $value, $property) => str_contains($property, '->') ?
             $query->whereRaw(
-                "CAST({$query->getGrammar()->wrap($property)} as CHAR) {$cond} ?",
+                "CAST({$query->getGrammar()->wrap($property)} as {$this->getJsonCastType()}) {$cond} ?",
                 ['%' . $value . '%']
             ) : $query->where($property, $cond, $par ? $par($value) : '%' . $value . '%');
 
@@ -42,6 +42,10 @@ class StringAdvancedFilter extends BaseAdvancedFilter
             ],
             'ne' => [
                 'string' => ':col: IS NOT NULL OR :col: <> \'\'',
+                'rawString' => true
+            ],
+            'missing' => [
+                'string' => ':col: IS NULL OR :col: = \'\'',
                 'rawString' => true
             ],
             'bw' => [
@@ -77,12 +81,16 @@ class StringAdvancedFilter extends BaseAdvancedFilter
             $operation['query']($query, $value, $property);
         } else {
             if (isset($operation['rawString'])) {
+                $column = $query->getGrammar()->wrap($property);
+                if (str_contains($property, '->')) {
+                    $column = "CAST({$column} as {$this->getJsonCastType()})";
+                }
                 $occurrences = [
-                    ':col:' => $property,
+                    ':col:' => $column,
                 ];
-                $query->where(DB::raw(strtr($operation['string'], $occurrences)));
+                $query->whereRaw(strtr($operation['string'], $occurrences));
             } else if ($operation['op'] === 'in') {
-                $query->whereIn($property, explode(',', $value));
+                $query->whereIn($property, $this->splitListValue($value));
             } else {
                 if (isset($operation['raw'])) {
                     $op = DB::raw($operation['op']);
@@ -99,5 +107,21 @@ class StringAdvancedFilter extends BaseAdvancedFilter
                 $query->where($property, $op, $val);
             }
         }
+    }
+
+    protected function defaultKey(): ?string
+    {
+        return 'string';
+    }
+
+    private function getJsonCastType(): string
+    {
+        $type = config('query_builder_custom.filters.json_casts.string', 'CHAR');
+
+        if (!is_string($type) || $type === '') {
+            return 'CHAR';
+        }
+
+        return $type;
     }
 }

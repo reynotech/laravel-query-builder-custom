@@ -1,6 +1,5 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Traits;
 
-use Illuminate\Database\Eloquent\Attributes\Scope;
 use ReynoTECH\QueryBuilderCustom\Filters\DateFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\StringAdvancedFilter;
 use ReynoTECH\QueryBuilderCustom\Traits\Builders\DistinctValuesQueryBuilder;
@@ -35,133 +34,207 @@ trait HasQueryDefinition
 {
     public static function bootHasQueryDefinition()
     {
-        QueryBuilderRequest::setArrayValueDelimiter('|');
+        $delimiter = (string) config(
+            'query_builder_custom.has_query_definition.array_value_delimiter',
+            config('query_builder_custom.filters.delimiter', '|')
+        );
+        QueryBuilderRequest::setArrayValueDelimiter($delimiter !== '' ? $delimiter : '|');
     }
 
     public static function getQueryDefinitionInternalName($what)
     {
-        $fields = self::tableQueryDefinitionAll('filters');
+        $fields = static::tableQueryDefinitionAll('filters');
 
         foreach ($fields as $field) {
             if($field->getName() === $what) return $field->getInternalName();
         }
+
+        return null;
     }
 
     public static function tableQueryDefinitionAll($what): array
     {
-        $def = with(new self)->queryDefinition();
+        $def = static::queryDefinitionOrFail();
+        $base = $def[$what] ?? [];
 
-        if (array_key_exists('addons', $def)) {
-            $all = [];
-            foreach (array_keys($def['addons']) as $addon) {
-                $all = array_merge($all, $def['addons'][$addon][$what]);
-            }
-
-            return array_merge($def[$what], $all);
+        if (!is_array($base)) {
+            throw new \UnexpectedValueException(static::class . "::queryDefinition() must define [$what] as an array.");
         }
 
-        return $def[$what];
+        $addons = $def['addons'] ?? [];
+        if (!is_array($addons)) {
+            throw new \UnexpectedValueException(static::class . "::queryDefinition() addons must be an array.");
+        }
+
+        $all = [];
+        foreach ($addons as $addon => $addonDef) {
+            if (!is_array($addonDef)) {
+                continue;
+            }
+            if (!array_key_exists($what, $addonDef) || !is_array($addonDef[$what])) {
+                continue;
+            }
+            $all = array_merge($all, $addonDef[$what]);
+        }
+
+        return array_merge($base, $all);
     }
 
     public static function tableQueryDefinition($what, $add = []): array
     {
-        $def = with(new self)->queryDefinition();
+        $def = static::queryDefinitionOrFail();
+        $base = $def[$what] ?? [];
+
+        if (!is_array($base)) {
+            throw new \UnexpectedValueException(static::class . "::queryDefinition() must define [$what] as an array.");
+        }
 
         if (is_string($add)) {
-            $addons = explode(',', $add);
+            $addons = array_filter(array_map('trim', explode(',', $add)), static fn ($addon) => $addon !== '');
 
             $all = [];
             foreach ($addons as $addon) {
+                if (!isset($def['addons']) || !is_array($def['addons']) || !array_key_exists($addon, $def['addons'])) {
+                    throw new \InvalidArgumentException("Unknown addon [$addon].");
+                }
+                if (!array_key_exists($what, $def['addons'][$addon]) || !is_array($def['addons'][$addon][$what])) {
+                    throw new \InvalidArgumentException("Addon [$addon] does not define [$what].");
+                }
                 $all = array_merge($all, $def['addons'][$addon][$what]);
             }
 
-            return array_merge($def[$what], $all);
+            return array_merge($base, $all);
         }
 
-        return array_merge($def[$what], $add);
+        if (!is_array($add)) {
+            throw new \InvalidArgumentException('Addon definitions must be an array or comma-separated string.');
+        }
+
+        return array_merge($base, $add);
     }
 
     public static function tableQueryDefinitionFilters($add = []): array
     {
-        return self::tableQueryDefinitionFiltersNew($add);
+        return static::tableQueryDefinitionFiltersNew($add);
     }
 
     public static function tableQueryDefinitionSorts($add = []): array
     {
-        return self::tableQueryDefinition('sorts', $add);
+        return static::tableQueryDefinition('sorts', $add);
     }
 
     public static function tableQueryDefinitions($add = [])
     {
-        return new class($add, self::class) {
-            private $add;
-            private $old;
-
-            public function __construct($add, $old)
-            {
-                $this->add = $add;
-                $this->old = with(new $old);
-            }
-
-            public function filters()
-            {
-                return $this->old->tableQueryDefinition('filters', $this->add);
-            }
-
-            public function sorts()
-            {
-                return $this->old->tableQueryDefinition('sorts', $this->add);
-            }
-        };
+        return new QueryDefinitionAccessor(new static(), $add);
     }
 
 //    abstract public function queryFilters($table) : array;
 
 
+    /**
+     * @return array{0: array, 1: array} [filters, sorts]
+     */
     public static function tableQueryDefinitionFiltersNew($adds = [])
     {
-        $tableName = with(new static)->getTable();
+        $tableName = (new static)->getTable();
         $getTableName = function ($field = null, $table = null) use($tableName) {
             if (!$field && !$table) return $tableName;
             else if ($field && !$table) return $tableName . '.' . $field;
             else {
-                $tableRef = with(new $table)->getTable();
+                $tableRef = (new $table)->getTable();
 
                 if ($table && !$field) return $tableRef;
                 else return $tableRef . '.' . $field;
             }
         };
 
-        $defs = method_exists(self::class, 'queryFilters') ? with(new self)->queryFilters($getTableName) : [];
-        $filters = self::processFilters($defs);
-        $sorts = self::processSorts($defs);
+        $defs = method_exists(static::class, 'queryFilters') ? (new static)->queryFilters($getTableName) : [];
+        if (!is_array($defs)) {
+            throw new \UnexpectedValueException(static::class . '::queryFilters() must return an array.');
+        }
+        $filters = static::processFilters($defs);
+        $sorts = static::processSorts($defs);
 
-        $addons = array_merge([
-            'dates' => [
-                'created_at' => ['filter' => DateFilter::class, 'sort' => true],
-                'updated_at' => ['filter' => DateFilter::class, 'sort' => true],
-            ]
-        ],
-            method_exists(self::class, 'queryAddons') ? with(new self)->queryAddons($getTableName) : []
+        $addonDefs = method_exists(static::class, 'queryAddons') ? (new static)->queryAddons($getTableName) : [];
+        if (!is_array($addonDefs)) {
+            throw new \UnexpectedValueException(static::class . '::queryAddons() must return an array.');
+        }
+        $addons = array_merge(
+            static::resolveDefaultAddons(),
+            $addonDefs
         );
 
         if ($adds === '*') {
             foreach ($addons as $addon) {
-                $filters = array_merge($filters, self::processFilters($addon));
-                $sorts = array_merge($sorts, self::processSorts($addon));
+                $filters = array_merge($filters, static::processFilters($addon));
+                $sorts = array_merge($sorts, static::processSorts($addon));
             }
         } else {
             if (is_string($adds)) {
-                $adds = explode(',', $adds);
+                $adds = array_filter(array_map('trim', explode(',', $adds)), static fn ($add) => $add !== '');
+            } elseif (!is_array($adds)) {
+                throw new \InvalidArgumentException('Addon names must be an array, "*" or comma-separated string.');
             }
 
             foreach ($adds as $add) {
-                $filters = array_merge($filters, self::processFilters($addons[$add]));
-                $sorts = array_merge($sorts, self::processSorts($addons[$add]));
+                if (!array_key_exists($add, $addons)) {
+                    throw new \InvalidArgumentException("Unknown addon [$add].");
+                }
+                $filters = array_merge($filters, static::processFilters($addons[$add]));
+                $sorts = array_merge($sorts, static::processSorts($addons[$add]));
             }
         }
 
         return [$filters, $sorts];
+    }
+
+    protected static function resolveDefaultAddons(): array
+    {
+        $configAddons = config('query_builder_custom.has_query_definition.addons', []);
+        if (!is_array($configAddons) || $configAddons === []) {
+            return [
+                'dates' => [
+                    'created_at' => ['filter' => DateFilter::class, 'sort' => true],
+                    'updated_at' => ['filter' => DateFilter::class, 'sort' => true],
+                ],
+            ];
+        }
+
+        $addons = [];
+        foreach ($configAddons as $name => $addon) {
+            if (!is_array($addon)) {
+                continue;
+            }
+
+            if (array_key_exists('enabled', $addon) && $addon['enabled'] === false) {
+                continue;
+            }
+
+            $fields = $addon['fields'] ?? [];
+            if (!is_array($fields) || $fields === []) {
+                continue;
+            }
+
+            $filter = $addon['filter'] ?? DateFilter::class;
+            $sort = $addon['sort'] ?? false;
+
+            $defs = [];
+            foreach ($fields as $field) {
+                if (!is_string($field) || $field === '') {
+                    continue;
+                }
+                $defs[$field] = [
+                    'filter' => $filter,
+                    'sort' => $sort,
+                ];
+            }
+
+            if ($defs !== []) {
+                $addons[$name] = $defs;
+            }
+        }
+
+        return $addons;
     }
 
     /**
@@ -182,7 +255,10 @@ trait HasQueryDefinition
                 $filters[] = AllowedFilter::custom($field, $defaultFilter, $def);
             } // field string and def array (multiple options)
             else {
-                $internal = array_key_exists('internal', $def) ? self::processInternalName($def['internal'], $field) : null;
+                if (!is_array($def)) {
+                    throw new \InvalidArgumentException("Filter definition for [$field] must be an array.");
+                }
+                $internal = array_key_exists('internal', $def) ? static::processInternalName($def['internal'], $field) : null;
                 if (array_key_exists('filter', $def)) {
                     $interpret = is_string($def['filter']) && class_exists($def['filter']) ? new $def['filter'] : $def['filter'];
                     $filters[] = AllowedFilter::custom($field, $def['filter'] instanceof \Closure ? $def['filter']() : $interpret, $internal);
@@ -201,7 +277,20 @@ trait HasQueryDefinition
         $sorts = [];
 
         foreach ($defs as $field => $def) {
-            $internal = array_key_exists('internal', $def) ? self::processInternalName($def['internal'], $field) : null;
+            // default sortable for simple definitions
+            if (is_int($field) && is_string($def)) {
+                $sorts[] = $def;
+                continue;
+            }
+            if (is_string($field) && is_string($def)) {
+                $sorts[] = AllowedSort::field($field, $def);
+                continue;
+            }
+            if (!is_array($def)) {
+                continue;
+            }
+
+            $internal = array_key_exists('internal', $def) ? static::processInternalName($def['internal'], $field) : null;
 
             if (array_key_exists('csort', $def)) {
                 $sorts[] = AllowedSort::callback($field, $def['csort']);
@@ -217,20 +306,64 @@ trait HasQueryDefinition
 
     public static function processInternalName($name, $field)
     {
-        if ($name instanceof \Closure) return $name();
+        if ($name instanceof \Closure) {
+            $name = $name();
+        }
+        if (!is_string($name) || $name === '') {
+            return null;
+        }
         return !str_contains($name, '.')  ? $name . '.' . $field : $name;
     }
 
+    /**
+     * @return array{0: array, 1: array} [filters, sorts]
+     */
     public static function queryDefinitionsFromArray($defs)
     {
-        $filters = self::processFilters($defs);
-        $sorts = self::processSorts($defs);
+        $filters = static::processFilters($defs);
+        $sorts = static::processSorts($defs);
 
         return [$filters, $sorts];
+    }
+
+    protected static function queryDefinitionOrFail(): array
+    {
+        if (!method_exists(static::class, 'queryDefinition')) {
+            throw new \BadMethodCallException(static::class . ' must implement queryDefinition().');
+        }
+
+        $def = (new static)->queryDefinition();
+        if (!is_array($def)) {
+            throw new \UnexpectedValueException(static::class . '::queryDefinition() must return an array.');
+        }
+
+        return $def;
     }
 
     public function newEloquentBuilder($query)
     {
         return new DistinctValuesQueryBuilder($query);
+    }
+}
+
+class QueryDefinitionAccessor
+{
+    private object $model;
+    private mixed $add;
+
+    public function __construct(object $model, mixed $add)
+    {
+        $this->model = $model;
+        $this->add = $add;
+    }
+
+    public function filters(): array
+    {
+        return $this->model->tableQueryDefinition('filters', $this->add);
+    }
+
+    public function sorts(): array
+    {
+        return $this->model->tableQueryDefinition('sorts', $this->add);
     }
 }

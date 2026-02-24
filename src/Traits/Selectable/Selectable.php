@@ -1,4 +1,10 @@
-<?php namespace ReynoTECH\QueryBuilderCustom\Traits\Selectable;
+<?php
+
+declare(strict_types=1);
+
+namespace ReynoTECH\QueryBuilderCustom\Traits\Selectable;
+
+use Illuminate\Database\Eloquent\Builder;
 
 trait Selectable
 {
@@ -8,21 +14,20 @@ trait Selectable
      * @param  array  $models
      * @return \Illuminate\Database\Eloquent\Collection
      */
-    function newCollection(array $models = [])
+    public function newCollection(array $models = []): SelectableCollection
     {
         return new SelectableCollection($models, get_class($this));
     }
 
-    public function scopeToSelectPaginate($query, $perPage) {
+    public function scopeToSelectPaginate(Builder $query, int $perPage): array
+    {
         $results = $query->paginate($perPage);
 
-        $real = [];
-
-        $real['data'] = $results->toSelect();
-        $real['has_more'] = $results->hasMorePages();
-        $real['per_page'] = $results->perPage();
-        $real['current_page'] = $results->currentPage();
-
-        return $real;
+        return [
+            'data' => $results->getCollection()->toSelect(),
+            'has_more' => $results->hasMorePages(),
+            'per_page' => $results->perPage(),
+            'current_page' => $results->currentPage(),
+        ];
     }
 }

@@ -9,4 +9,11 @@ class DateTimeCast extends BaseDateCast
     protected string $storageFormat = 'Y-m-d H:i:s';
     protected string $configKey = 'app.date_format';
     protected string $configFallback = 'd/m/y h:i A';
+
+    protected function getCastConfig(): array
+    {
+        $config = config('query_builder_custom.casts.datetime', []);
+
+        return is_array($config) ? $config : [];
+    }
 }
