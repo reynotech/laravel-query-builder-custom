@@ -130,8 +130,13 @@ final class AdvancedFiltersMysqlTest extends TestCase
             $this->assertSame(['Alpha', 'Alina', 'Bob'], $this->applyFilter($filter, ['bw', '10/02/2026,15/02/2026'], 'event_date'));
             $this->assertSame(['Alina'], $this->applyFilter($filter, ['bw', '12/02/2026'], 'event_date'));
             $this->assertSame(['Alpha', 'Bob'], $this->applyFilter($filter, ['in', '10/02/2026,15/02/2026'], 'event_date'));
+            $this->assertSame(['Alpha', 'Alina', 'Bob'], $this->applyFilter($filter, ['my', '02/2026'], 'event_date'));
+            $this->assertSame(['Alpha', 'Alina', 'Bob'], $this->applyFilter($filter, ['bmy', '02/2026,02/2026'], 'event_date'));
             $this->assertSame(['Carl'], $this->applyFilter($filter, ['null', ''], 'event_date'));
             $this->assertSame(['Alpha', 'Alina', 'Bob'], $this->applyFilter($filter, ['nnull', ''], 'event_date'));
+            $this->assertSame(['Alpha', 'Alina', 'Bob', 'Carl'], $this->applyFilter($filter, ['my', '2/2026'], 'event_date'));
+            $this->assertSame(['Alpha', 'Alina', 'Bob', 'Carl'], $this->applyFilter($filter, ['bmy', '02/2026,2/2026'], 'event_date'));
+            $this->assertSame(['Alpha', 'Alina', 'Bob', 'Carl'], $this->applyFilter($filter, ['eq', '31/02/2026'], 'event_date'));
         } finally {
             $schema->dropIfExists($table);
         }

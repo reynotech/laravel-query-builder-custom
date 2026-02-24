@@ -31,13 +31,13 @@ docker run --rm -d \
 
 echo "Waiting for MySQL to be ready..."
 for _ in {1..60}; do
-  if docker exec "${CONTAINER_NAME}" mysqladmin ping -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
+  if docker exec "${CONTAINER_NAME}" mysqladmin ping --protocol=TCP -h 127.0.0.1 -P 3306 -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
 
-if ! docker exec "${CONTAINER_NAME}" mysqladmin ping -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
+if ! docker exec "${CONTAINER_NAME}" mysqladmin ping --protocol=TCP -h 127.0.0.1 -P 3306 -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
   echo "MySQL did not become ready in time." >&2
   exit 1
 fi
