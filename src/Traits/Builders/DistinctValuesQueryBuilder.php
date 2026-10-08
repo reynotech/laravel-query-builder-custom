@@ -1,7 +1,9 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Traits\Builders;
 
 use Closure;
+use Illuminate\Http\Request;
 use ReynoTECH\QueryBuilderCustom\Filters\StringAdvancedFilter;
+use ReynoTECH\QueryBuilderCustom\RemoteSelect;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
@@ -54,6 +56,37 @@ class DistinctValuesQueryBuilder extends Builder
         $paginator->through(static fn ($item) => $item->{$valueAlias});
 
         return $paginator;
+    }
+
+    /**
+     * Remote-select variant of the legacy distinct endpoint.
+     * The field is an application-supplied logical allowed-filter name, never
+     * a request column. Legacy _dist/_fdist/_dcur handling remains unchanged.
+     */
+    public function distinctSelectPaginate(Request|array $request, string $field, ?int $perPage = null): array
+    {
+        if ($field === '') {
+            abort(400, 'Invalid distinct field.');
+        }
+
+        [$search, $page] = RemoteSelect::requestValues($request);
+        $this->applyDistinctPreQuery();
+        $internalName = $this->resolveDistinctInternalName($field);
+        $valueAlias = $this->getDistinctValueAlias();
+        $this->applyDistinctSelect($internalName, $valueAlias);
+        $this->applyDistinctFilter($field, $internalName, $search);
+
+        $paginator = parent::paginate(
+            $perPage ?? (int) config('query_builder_custom.distinct.per_page', 50),
+            ['*'],
+            'page',
+            $page,
+        );
+
+        return RemoteSelect::paginatorResponse($paginator, static fn ($items): array => $items
+            ->map(static fn ($item): array => ['label' => $item->{$valueAlias}, 'value' => $item->{$valueAlias}])
+            ->values()
+            ->all());
     }
 
     private function applyDistinctPreQuery(): void

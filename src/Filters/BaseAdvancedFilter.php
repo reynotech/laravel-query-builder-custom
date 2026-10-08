@@ -3,6 +3,9 @@
 namespace ReynoTECH\QueryBuilderCustom\Filters;
 
 use Illuminate\Database\Eloquent\Builder;
+use InvalidArgumentException;
+use ReynoTECH\QueryBuilderCustom\BooleanFilterExpression;
+use ReynoTECH\QueryBuilderCustom\SpatieV2FilterConditions;
 use Spatie\QueryBuilder\Filters\Filter;
 
 abstract class BaseAdvancedFilter implements Filter
@@ -11,7 +14,93 @@ abstract class BaseAdvancedFilter implements Filter
 
     public function __invoke(Builder $query, $value, string $property): void
     {
+        if (config('query_builder_custom.filters.spatie_v2.enabled', false)) {
+            $value = BooleanFilterExpression::fromEncoded($value)
+                ?? SpatieV2FilterConditions::fromEncoded($value)
+                ?? $value;
+        }
+
+        if ($value instanceof BooleanFilterExpression) {
+            $this->applyExpressionNode($query, $value->root(), $property);
+            return;
+        }
+
+        if ($value instanceof SpatieV2FilterConditions) {
+            foreach ($value->all() as $condition) {
+                $normalized = $condition['operator'] === null
+                    ? $this->normalizeValue($condition['value'])
+                    : [$this->normalizeOperator($condition['operator']), $condition['value']];
+
+                $apply = function (Builder $nested) use ($normalized, $property): void {
+                    $this->processQuery($nested, $normalized, $property);
+                };
+
+                if ($condition['join'] === 'or') {
+                    $query->orWhere($apply);
+                } else {
+                    $query->where($apply);
+                }
+            }
+
+            return;
+        }
+
         $this->processQuery($query, $this->normalizeValue($value), $property);
+    }
+
+    /** @param array<string, mixed> $node */
+    private function applyExpressionNode(Builder $query, array $node, string $property, string $boolean = 'and'): void
+    {
+        $apply = function (Builder $nested) use ($node, $property): void {
+            if ($node['type'] === 'condition') {
+                $operator = $this->normalizeOperator($node['op']);
+                if (! $this->supportsExpressionOperator($operator)) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Operator "%s" is not supported by %s.',
+                        $operator,
+                        static::class,
+                    ));
+                }
+
+                $this->validateExpressionCondition($operator, $node['value']);
+                $this->processQuery($nested, [$operator, $node['value']], $property);
+                return;
+            }
+
+            foreach ($node['children'] as $index => $child) {
+                $this->applyExpressionNode(
+                    $nested,
+                    $child,
+                    $property,
+                    $index === 0 ? 'and' : $node['operator'],
+                );
+            }
+        };
+
+        $not = ($node['not'] ?? false) === true;
+        $method = match ([$boolean, $not]) {
+            ['or', true] => 'orWhereNot',
+            ['or', false] => 'orWhere',
+            ['and', true] => 'whereNot',
+            default => 'where',
+        };
+
+        $query->{$method}($apply);
+    }
+
+    protected function supportsExpressionOperator(string $operator): bool
+    {
+        if (! method_exists($this, 'getFilters')) {
+            return false;
+        }
+
+        $filters = $this->getFilters();
+
+        return is_array($filters) && array_key_exists($operator, $filters);
+    }
+
+    protected function validateExpressionCondition(string $operator, mixed $value): void
+    {
     }
 
     abstract public function processQuery($query, $value, $property);

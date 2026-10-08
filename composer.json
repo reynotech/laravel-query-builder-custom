@@ -29,7 +29,8 @@
     },
     "scripts": {
         "test": "phpunit",
-        "test:mysql": "bash scripts/test-mysql.sh"
+        "test:mysql": "bash scripts/test-mysql.sh",
+        "release": "bash scripts/bump-version.sh"
     },
     "authors": [
         {

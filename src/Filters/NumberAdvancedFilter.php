@@ -1,5 +1,7 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Filters;
 
+use InvalidArgumentException;
+
 class NumberAdvancedFilter extends BaseAdvancedFilter
 {
     protected string $default = 'eq';
@@ -95,6 +97,29 @@ class NumberAdvancedFilter extends BaseAdvancedFilter
     protected function defaultKey(): ?string
     {
         return 'number';
+    }
+
+    protected function validateExpressionCondition(string $operator, mixed $value): void
+    {
+        if ($operator === 'bw') {
+            $range = $this->splitRangeValue($value);
+            if (count($range) !== 2 || ! is_numeric($range[0]) || ! is_numeric($range[1])) {
+                throw new InvalidArgumentException('Number filter operator "bw" requires exactly two numeric values.');
+            }
+            return;
+        }
+
+        if ($operator === 'in') {
+            $values = $this->splitListValue($value);
+            if ($values === [] || array_filter($values, static fn (mixed $item): bool => ! is_numeric($item)) !== []) {
+                throw new InvalidArgumentException('Number filter operator "in" requires one or more numeric values.');
+            }
+            return;
+        }
+
+        if (is_array($value) || ! is_numeric($value)) {
+            throw new InvalidArgumentException("Number filter operator \"{$operator}\" requires a numeric value.");
+        }
     }
 
     private function getJsonCastType(): string

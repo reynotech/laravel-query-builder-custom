@@ -6,10 +6,12 @@ use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Throwable;
+use ReynoTECH\QueryBuilderCustom\DateFormats;
 
 abstract class BaseDateCast implements CastsAttributes
 {
     protected bool $setParsing = false;
+    protected bool $translateGetFormat = true;
     protected string $getFormat;
     protected string $setFormat;
     protected string $storageFormat;
@@ -25,7 +27,14 @@ abstract class BaseDateCast implements CastsAttributes
         $configGetFormat = $config['get_format'] ?? null;
         $configSetFormat = $config['set_format'] ?? null;
 
-        $this->getFormat = $this->resolveFormat($getFormat ?? $configGetFormat);
+        $requestedGetFormat = $getFormat ?? $configGetFormat;
+        $kind = $this->configKey === 'app.date_format_solo' ? 'date' : 'dateTime';
+        // Shared API values must keep PHP's AM/PM spelling regardless of Carbon locale.
+        // Explicit cast formats and unconfigured legacy casts retain translated output.
+        $hasSharedFormat = config("query_builder_custom.dates.value.{$kind}") !== null
+            || config("query_builder_custom.dates.{$kind}") !== null;
+        $this->translateGetFormat = !($hasSharedFormat && in_array($requestedGetFormat, [null, '', false, 'false'], true));
+        $this->getFormat = $this->resolveFormat($requestedGetFormat);
         $this->setFormat = $this->resolveFormat($setFormat ?? $configSetFormat);
 
         $storageFormat = $config['storage_format'] ?? null;
@@ -85,7 +94,7 @@ abstract class BaseDateCast implements CastsAttributes
 
         $format = $this->resolveFormat($toFormat);
 
-        return $carbon->translatedFormat($format);
+        return $this->translateGetFormat ? $carbon->translatedFormat($format) : $carbon->format($format);
     }
 
     protected function formatDateForStorage($date, ?string $originFormat): mixed
@@ -162,7 +171,7 @@ abstract class BaseDateCast implements CastsAttributes
     protected function resolveFormat(string|bool|null $format): string
     {
         if ($format === null || $format === '' || $format === false || $format === 'false') {
-            return (string) config($this->configKey, $this->configFallback);
+            return DateFormats::format($this->configKey === 'app.date_format_solo' ? 'date' : 'dateTime', 'value', $this->configFallback);
         }
 
         return (string) $format;

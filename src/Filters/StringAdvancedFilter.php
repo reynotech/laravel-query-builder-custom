@@ -3,6 +3,7 @@
 use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class StringAdvancedFilter extends BaseAdvancedFilter
 {
@@ -112,6 +113,24 @@ class StringAdvancedFilter extends BaseAdvancedFilter
     protected function defaultKey(): ?string
     {
         return 'string';
+    }
+
+    protected function validateExpressionCondition(string $operator, mixed $value): void
+    {
+        if (in_array($operator, ['e', 'ne', 'missing'], true)) {
+            return;
+        }
+
+        if ($operator === 'in') {
+            if ($this->splitListValue($value) === []) {
+                throw new InvalidArgumentException('String filter operator "in" requires at least one value.');
+            }
+            return;
+        }
+
+        if (is_array($value)) {
+            throw new InvalidArgumentException("String filter operator \"{$operator}\" requires a scalar value.");
+        }
     }
 
     private function getJsonCastType(): string

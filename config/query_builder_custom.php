@@ -1,6 +1,16 @@
 <?php
 
 return [
+    // PHP date() tokens. Null retains legacy app.date_format_solo/app.date_format
+    // defaults. Display, form values and filter payloads can vary independently.
+    // DateFormats::frontendConfig() exports this contract for Quasar Utils.
+    'dates' => [
+        'date' => null,
+        'dateTime' => null,
+        'month' => null,
+        'value' => ['date' => null, 'dateTime' => null, 'month' => null],
+        'filter' => ['date' => null, 'dateTime' => null, 'month' => null],
+    ],
     'filters' => [
         'delimiter' => '|',
         'separator' => ',',
@@ -8,6 +18,8 @@ return [
             'string' => 'con',
             'number' => 'eq',
             'date' => 'eq',
+            'datetime' => 'eq',
+            'select' => 'eq',
         ],
         'json_casts' => [
             'string' => 'CHAR',
@@ -22,6 +34,20 @@ return [
             // 'not_contains' => 'ncon',
             // 'before' => 'lt',
             // 'after' => 'gt',
+        ],
+        'spatie_v2' => [
+            // Enable only where QueryBuilder is given
+            // SpatieV2FilterRequestAdapter::normalize($request).
+            'enabled' => false,
+        ],
+        'boolean_expressions' => [
+            'operator' => 'expr',
+            'max_payload_length' => 65536,
+            'max_depth' => 4,
+            'max_conditions' => 25,
+            'max_values_per_condition' => 100,
+            'max_value_length' => 2000,
+            'timezone' => null,
         ],
     ],
     'distinct' => [
