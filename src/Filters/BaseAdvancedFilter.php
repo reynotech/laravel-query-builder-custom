@@ -26,21 +26,26 @@ abstract class BaseAdvancedFilter implements Filter
         }
 
         if ($value instanceof SpatieV2FilterConditions) {
-            foreach ($value->all() as $condition) {
-                $normalized = $condition['operator'] === null
-                    ? $this->normalizeValue($condition['value'])
-                    : [$this->normalizeOperator($condition['operator']), $condition['value']];
+            // One group for the whole field: an `or` joins this field's own
+            // conditions and must never reach the constraints already on the
+            // query (`tenant = 1 AND a OR b` would return every tenant's b).
+            $query->where(function (Builder $group) use ($value, $property): void {
+                foreach ($value->all() as $condition) {
+                    $normalized = $condition['operator'] === null
+                        ? $this->normalizeValue($condition['value'])
+                        : [$this->normalizeOperator($condition['operator']), $condition['value']];
 
-                $apply = function (Builder $nested) use ($normalized, $property): void {
-                    $this->processQuery($nested, $normalized, $property);
-                };
+                    $apply = function (Builder $nested) use ($normalized, $property): void {
+                        $this->processQuery($nested, $normalized, $property);
+                    };
 
-                if ($condition['join'] === 'or') {
-                    $query->orWhere($apply);
-                } else {
-                    $query->where($apply);
+                    if ($condition['join'] === 'or') {
+                        $group->orWhere($apply);
+                    } else {
+                        $group->where($apply);
+                    }
                 }
-            }
+            });
 
             return;
         }

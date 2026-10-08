@@ -211,18 +211,19 @@ final class SpatieV2FilterRequestAdapterTest extends TestCase
 
     private function queryMockForConditions(): Builder
     {
-        $nested = $this->getMockBuilder(Builder::class)->disableOriginalConstructor()->getMock();
         $query = $this->getMockBuilder(Builder::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['where', 'orWhere'])
             ->getMock();
 
-        $query->method('where')->willReturnCallback(function (callable $callback) use ($nested, $query) {
-            $callback($nested);
+        // A nested group is the same kind of builder, so the conditions'
+        // group and each condition inside it run against this one mock.
+        $query->method('where')->willReturnCallback(function (callable $callback) use ($query) {
+            $callback($query);
             return $query;
         });
-        $query->method('orWhere')->willReturnCallback(function (callable $callback) use ($nested, $query) {
-            $callback($nested);
+        $query->method('orWhere')->willReturnCallback(function (callable $callback) use ($query) {
+            $callback($query);
             return $query;
         });
 

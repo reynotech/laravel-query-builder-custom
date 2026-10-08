@@ -16,6 +16,7 @@ use ReynoTECH\QueryBuilderCustom\Filters\DateFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\NumberAdvancedFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\SelectAdvancedFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\StringAdvancedFilter;
+use ReynoTECH\QueryBuilderCustom\SpatieV2FilterConditions;
 
 final class BooleanExpressionsSqliteTest extends TestCase
 {
@@ -86,6 +87,21 @@ final class BooleanExpressionsSqliteTest extends TestCase
 
         $this->assertSame(['Alpha', 'Beta', 'Delta'], $this->apply($filter, $orExpression, 'status'));
         $this->assertSame(['Alpha', 'Beta', 'Delta'], $this->apply($filter, $inExpression, 'status'));
+    }
+
+    public function test_or_conditions_stay_inside_the_constraints_already_on_the_query(): void
+    {
+        $conditions = (new SpatieV2FilterConditions([
+            ['join' => 'and', 'operator' => 'eq', 'value' => 'active', 'index' => null],
+            ['join' => 'or', 'operator' => 'eq', 'value' => 'archived', 'index' => null],
+        ]))->encode();
+
+        // A scope (a tenant, a visibility rule) is already on the query: the
+        // `or` must not reach past it to Gamma, which the scope excludes.
+        $query = BooleanExpressionModel::query()->where('score', '<', 25)->orderBy('id');
+        (new SelectAdvancedFilter(['active', 'paused', 'archived']))($query, $conditions, 'status');
+
+        $this->assertSame(['Alpha'], $query->pluck('name')->all());
     }
 
     public function test_a_whole_group_can_be_negated(): void
