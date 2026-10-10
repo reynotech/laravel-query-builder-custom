@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Facade;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use ReynoTECH\QueryBuilderCustom\BooleanFilterExpression;
+use ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterOperator;
 use ReynoTECH\QueryBuilderCustom\Filters\DateFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\NumberAdvancedFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\SelectAdvancedFilter;
@@ -176,9 +177,53 @@ final class BooleanExpressionsSqliteTest extends TestCase
         $this->assertSame(['Beta', 'Delta'], $this->apply(new StringAdvancedFilter(), $notIn, 'name'));
     }
 
+    public function test_number_filter_takes_a_list_out_and_empty_or_not(): void
+    {
+        $notIn = $this->expression(['type' => 'condition', 'op' => 'nin', 'value' => [10, 30]]);
+        $notEmpty = $this->expression(['type' => 'condition', 'op' => 'nnull', 'value' => null]);
+
+        $this->assertSame(['Beta', 'Delta'], $this->apply(new NumberAdvancedFilter(), $notIn, 'score'));
+        $this->assertSame(['Alpha', 'Beta', 'Gamma', 'Delta'], $this->apply(new NumberAdvancedFilter(), $notEmpty, 'score'));
+    }
+
+    public function test_string_filter_reads_null_and_nnull_as_empty_and_not_empty(): void
+    {
+        Capsule::table($this->table)->insert([
+            ['name' => '', 'status' => 'blank', 'score' => 50, 'event_date' => '2026-09-06'],
+        ]);
+        $empty = $this->expression(['type' => 'condition', 'op' => 'null', 'value' => null]);
+        $notEmpty = $this->expression(['type' => 'condition', 'op' => 'nnull', 'value' => null]);
+        $legacyNotEmpty = $this->expression(['type' => 'condition', 'op' => 'ne', 'value' => null]);
+
+        $this->assertSame([''], $this->apply(new StringAdvancedFilter(), $empty, 'name'));
+        $this->assertSame(['Alpha', 'Beta', 'Gamma', 'Delta'], $this->apply(new StringAdvancedFilter(), $notEmpty, 'name'));
+        // "Not empty" used to let an empty string through.
+        $this->assertSame(['Alpha', 'Beta', 'Gamma', 'Delta'], $this->apply(new StringAdvancedFilter(), $legacyNotEmpty, 'name'));
+    }
+
+    public function test_an_operator_named_in_the_key_that_the_column_lacks_is_a_bad_request(): void
+    {
+        $this->expectException(InvalidFilterOperator::class);
+        $this->apply(new SelectAdvancedFilter(), (new SpatieV2FilterConditions([
+            ['join' => 'and', 'operator' => 'con', 'value' => 'act', 'index' => null],
+        ]))->encode(), 'status');
+    }
+
+    public function test_text_with_the_delimiter_in_it_is_read_whole(): void
+    {
+        Capsule::table($this->table)->insert([
+            ['name' => 'A|B', 'status' => 'piped', 'score' => 60, 'event_date' => '2026-09-06'],
+        ]);
+        $query = BooleanExpressionModel::query();
+        (new StringAdvancedFilter())($query, 'A|B', 'name');
+
+        $this->assertSame(['A|B'], $query->pluck('name')->all());
+    }
+
     public function test_rejects_operators_not_supported_by_the_concrete_filter(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        // A malformed query, answered as 400.
+        $this->expectException(InvalidFilterOperator::class);
         $this->apply(new SelectAdvancedFilter(), $this->expression([
             'type' => 'condition',
             'op' => 'contains',

@@ -5,6 +5,7 @@ namespace ReynoTECH\QueryBuilderCustom\Filters;
 use Illuminate\Database\Eloquent\Builder;
 use InvalidArgumentException;
 use ReynoTECH\QueryBuilderCustom\BooleanFilterExpression;
+use ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterOperator;
 use ReynoTECH\QueryBuilderCustom\SpatieV2FilterConditions;
 use Spatie\QueryBuilder\Filters\Filter;
 
@@ -35,6 +36,13 @@ abstract class BaseAdvancedFilter implements Filter
                         ? $this->normalizeValue($condition['value'])
                         : [$this->normalizeOperator($condition['operator']), $condition['value']];
 
+                    // Named in the key (`filter[amount|gte]`): an operator the
+                    // column does not have is a malformed query, not a filter to drop.
+                    // A filter without an operator list reads its own operators.
+                    if ($condition['operator'] !== null && method_exists($this, 'getFilters')) {
+                        $this->assertSupportedOperator($normalized[0]);
+                    }
+
                     $apply = function (Builder $nested) use ($normalized, $property): void {
                         $this->processQuery($nested, $normalized, $property);
                     };
@@ -59,13 +67,7 @@ abstract class BaseAdvancedFilter implements Filter
         $apply = function (Builder $nested) use ($node, $property): void {
             if ($node['type'] === 'condition') {
                 $operator = $this->normalizeOperator($node['op']);
-                if (! $this->supportsExpressionOperator($operator)) {
-                    throw new InvalidArgumentException(sprintf(
-                        'Operator "%s" is not supported by %s.',
-                        $operator,
-                        static::class,
-                    ));
-                }
+                $this->assertSupportedOperator($operator);
 
                 $this->validateExpressionCondition($operator, $node['value']);
                 $this->processQuery($nested, [$operator, $node['value']], $property);
@@ -91,6 +93,16 @@ abstract class BaseAdvancedFilter implements Filter
         };
 
         $query->{$method}($apply);
+    }
+
+    /**
+     * @throws InvalidFilterOperator answered as 400
+     */
+    protected function assertSupportedOperator(string $operator): void
+    {
+        if (! $this->supportsExpressionOperator($operator)) {
+            throw InvalidFilterOperator::for($operator, static::class);
+        }
     }
 
     protected function supportsExpressionOperator(string $operator): bool
@@ -125,7 +137,12 @@ abstract class BaseAdvancedFilter implements Filter
                 $parts = explode($delimiter, $value, 2);
                 if (count($parts) === 2) {
                     $parts[0] = $this->normalizeOperator($parts[0]);
-                    return $parts;
+
+                    // "A|B" typed in a box is text, not an operator called "A":
+                    // read whole with the default operator rather than dropped.
+                    if (! method_exists($this, 'getFilters') || $this->supportsExpressionOperator($parts[0])) {
+                        return $parts;
+                    }
                 }
             }
         }

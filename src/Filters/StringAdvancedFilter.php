@@ -42,11 +42,20 @@ class StringAdvancedFilter extends BaseAdvancedFilter
                 'rawString' => true
             ],
             'ne' => [
-                'string' => ':col: IS NOT NULL OR :col: <> \'\'',
+                'string' => ':col: IS NOT NULL AND :col: <> \'\'',
                 'rawString' => true
             ],
             'missing' => [
                 'string' => ':col: IS NULL OR :col: = \'\'',
+                'rawString' => true
+            ],
+            // The names every other filter uses for empty and not empty.
+            'null' => [
+                'string' => ':col: IS NULL OR :col: = \'\'',
+                'rawString' => true
+            ],
+            'nnull' => [
+                'string' => ':col: IS NOT NULL AND :col: <> \'\'',
                 'rawString' => true
             ],
             'bw' => [
@@ -92,7 +101,8 @@ class StringAdvancedFilter extends BaseAdvancedFilter
                 $occurrences = [
                     ':col:' => $column,
                 ];
-                $query->whereRaw(strtr($operation['string'], $occurrences));
+                // Grouped: an OR inside must not reach the query's other constraints.
+                $query->whereRaw('(' . strtr($operation['string'], $occurrences) . ')');
             } else if ($operation['op'] === 'in') {
                 $query->whereIn($property, $this->splitListValue($value));
             } else if ($operation['op'] === 'not in') {
@@ -122,7 +132,7 @@ class StringAdvancedFilter extends BaseAdvancedFilter
 
     protected function validateExpressionCondition(string $operator, mixed $value): void
     {
-        if (in_array($operator, ['e', 'ne', 'missing'], true)) {
+        if (in_array($operator, ['e', 'ne', 'missing', 'null', 'nnull'], true)) {
             return;
         }
 

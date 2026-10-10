@@ -192,7 +192,7 @@ final class SpatieV2FilterRequestAdapterTest extends TestCase
             'value' => 'active',
         ])->encode();
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(\ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterOperator::class);
         $filter($query, $expression, 'status');
     }
 

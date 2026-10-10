@@ -53,17 +53,29 @@ class NumberAdvancedFilter extends BaseAdvancedFilter
                 }
             ],
             'in' => [
-                'query' => function($query, $value, $property) {
-                    $list = $this->splitListValue($value);
-                    if ($list === []) {
-                        return;
-                    }
-                    $column = $this->wrapNumericColumn($query, $property);
-                    $placeholders = implode(',', array_fill(0, count($list), '?'));
-                    $query->whereRaw("{$column} IN ({$placeholders})", $list);
-                }
+                'query' => fn($query, $value, $property) => $this->whereList($query, $value, $property, 'IN')
+            ],
+            'nin' => [
+                'query' => fn($query, $value, $property) => $this->whereList($query, $value, $property, 'NOT IN')
+            ],
+            'null' => [
+                'query' => fn($query, $value, $property) => $query->whereNull($property)
+            ],
+            'nnull' => [
+                'query' => fn($query, $value, $property) => $query->whereNotNull($property)
             ],
         ];
+    }
+
+    private function whereList($query, $value, $property, string $operator): void
+    {
+        $list = $this->splitListValue($value);
+        if ($list === []) {
+            return;
+        }
+        $column = $this->wrapNumericColumn($query, $property);
+        $placeholders = implode(',', array_fill(0, count($list), '?'));
+        $query->whereRaw("{$column} {$operator} ({$placeholders})", $list);
     }
 
     public function processQuery($query, $value, $property)
@@ -87,7 +99,7 @@ class NumberAdvancedFilter extends BaseAdvancedFilter
             $occurrences = [
                 ':col:' => $column
             ];
-            $query->whereRaw(strtr($operation['string'], $occurrences));
+            $query->whereRaw('(' . strtr($operation['string'], $occurrences) . ')');
             return;
         }
 
@@ -109,10 +121,14 @@ class NumberAdvancedFilter extends BaseAdvancedFilter
             return;
         }
 
-        if ($operator === 'in') {
+        if (in_array($operator, ['null', 'nnull'], true)) {
+            return;
+        }
+
+        if (in_array($operator, ['in', 'nin'], true)) {
             $values = $this->splitListValue($value);
             if ($values === [] || array_filter($values, static fn (mixed $item): bool => ! is_numeric($item)) !== []) {
-                throw new InvalidArgumentException('Number filter operator "in" requires one or more numeric values.');
+                throw new InvalidArgumentException("Number filter operator \"{$operator}\" requires one or more numeric values.");
             }
             return;
         }
