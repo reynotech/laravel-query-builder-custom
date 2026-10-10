@@ -3,7 +3,6 @@
 namespace ReynoTECH\QueryBuilderCustom\Filters;
 
 use Illuminate\Database\Eloquent\Builder;
-use InvalidArgumentException;
 use ReynoTECH\QueryBuilderCustom\BooleanFilterExpression;
 use ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterOperator;
 use ReynoTECH\QueryBuilderCustom\SpatieV2FilterConditions;

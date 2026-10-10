@@ -1,9 +1,9 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Filters;
 
+use ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterValue;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 
 class StringAdvancedFilter extends BaseAdvancedFilter
 {
@@ -138,13 +138,13 @@ class StringAdvancedFilter extends BaseAdvancedFilter
 
         if (in_array($operator, ['in', 'nin'], true)) {
             if ($this->splitListValue($value) === []) {
-                throw new InvalidArgumentException("String filter operator \"{$operator}\" requires at least one value.");
+                throw InvalidFilterValue::because("String filter operator \"{$operator}\" requires at least one value.");
             }
             return;
         }
 
         if (is_array($value)) {
-            throw new InvalidArgumentException("String filter operator \"{$operator}\" requires a scalar value.");
+            throw InvalidFilterValue::because("String filter operator \"{$operator}\" requires a scalar value.");
         }
     }
 

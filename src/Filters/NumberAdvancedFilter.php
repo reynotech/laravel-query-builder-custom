@@ -1,6 +1,6 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Filters;
 
-use InvalidArgumentException;
+use ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterValue;
 
 class NumberAdvancedFilter extends BaseAdvancedFilter
 {
@@ -116,7 +116,7 @@ class NumberAdvancedFilter extends BaseAdvancedFilter
         if ($operator === 'bw') {
             $range = $this->splitRangeValue($value);
             if (count($range) !== 2 || ! is_numeric($range[0]) || ! is_numeric($range[1])) {
-                throw new InvalidArgumentException('Number filter operator "bw" requires exactly two numeric values.');
+                throw InvalidFilterValue::because('Number filter operator "bw" requires exactly two numeric values.');
             }
             return;
         }
@@ -128,13 +128,13 @@ class NumberAdvancedFilter extends BaseAdvancedFilter
         if (in_array($operator, ['in', 'nin'], true)) {
             $values = $this->splitListValue($value);
             if ($values === [] || array_filter($values, static fn (mixed $item): bool => ! is_numeric($item)) !== []) {
-                throw new InvalidArgumentException("Number filter operator \"{$operator}\" requires one or more numeric values.");
+                throw InvalidFilterValue::because("Number filter operator \"{$operator}\" requires one or more numeric values.");
             }
             return;
         }
 
         if (is_array($value) || ! is_numeric($value)) {
-            throw new InvalidArgumentException("Number filter operator \"{$operator}\" requires a numeric value.");
+            throw InvalidFilterValue::because("Number filter operator \"{$operator}\" requires a numeric value.");
         }
     }
 

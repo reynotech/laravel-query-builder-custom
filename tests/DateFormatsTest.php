@@ -196,7 +196,7 @@ final class DateFormatsTest extends TestCase
     public function test_invalid_datetime_expression_is_rejected_strictly(): void
     {
         $this->database();
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterValue::class);
         $expression = BooleanFilterExpression::fromPayload(['type' => 'condition', 'op' => 'eq', 'value' => '02/31/2026 01:05:06 PM']);
         $this->apply(new DateTimeFilter(), $expression);
     }

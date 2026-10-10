@@ -1,9 +1,9 @@
 <?php namespace ReynoTECH\QueryBuilderCustom\Filters;
 
+use ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterValue;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use DateTime;
-use InvalidArgumentException;
 use ReynoTECH\QueryBuilderCustom\DateFormats;
 
 class DateFilter extends BaseAdvancedFilter
@@ -348,7 +348,7 @@ class DateFilter extends BaseAdvancedFilter
 
         if ($operator === 'relative') {
             if (! is_string($value) || $this->resolveRelativeRange($value) === null) {
-                throw new InvalidArgumentException('Date filter operator "relative" contains an unknown preset.');
+                throw InvalidFilterValue::because('Date filter operator "relative" contains an unknown preset.');
             }
             return;
         }
@@ -358,7 +358,7 @@ class DateFilter extends BaseAdvancedFilter
                 return;
             }
             if (! is_string($value) || $this->parseMonthYear($value) === null) {
-                throw new InvalidArgumentException('Date month/year filters require a value matching the configured month format.');
+                throw InvalidFilterValue::because('Date month/year filters require a value matching the configured month format.');
             }
             return;
         }
@@ -372,7 +372,7 @@ class DateFilter extends BaseAdvancedFilter
                     : $this->parseMonthYear($item) !== null);
             }
             if (! $valid) {
-                throw new InvalidArgumentException("Date filter operator \"{$operator}\" requires exactly two valid values.");
+                throw InvalidFilterValue::because("Date filter operator \"{$operator}\" requires exactly two valid values.");
             }
             return;
         }
@@ -385,14 +385,14 @@ class DateFilter extends BaseAdvancedFilter
                 fn (mixed $item): bool => ! is_string($item) || $this->parseDate($item, $format) === null,
             ) !== [];
             if ($invalid) {
-                throw new InvalidArgumentException('Date filter operator "in" requires one or more valid dates.');
+                throw InvalidFilterValue::because('Date filter operator "in" requires one or more valid dates.');
             }
             return;
         }
 
         $format = $this->inputFormat();
         if (! is_string($value) || $this->parseDate($value, $format) === null) {
-            throw new InvalidArgumentException("Date filter operator \"{$operator}\" requires a valid {$format} date.");
+            throw InvalidFilterValue::because("Date filter operator \"{$operator}\" requires a valid {$format} date.");
         }
     }
 }

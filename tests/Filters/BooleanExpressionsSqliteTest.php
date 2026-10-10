@@ -13,6 +13,7 @@ use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use ReynoTECH\QueryBuilderCustom\BooleanFilterExpression;
 use ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterOperator;
+use ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterValue;
 use ReynoTECH\QueryBuilderCustom\Filters\DateFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\NumberAdvancedFilter;
 use ReynoTECH\QueryBuilderCustom\Filters\SelectAdvancedFilter;
@@ -233,7 +234,7 @@ final class BooleanExpressionsSqliteTest extends TestCase
 
     public function test_rejects_invalid_typed_values_instead_of_silently_skipping_them(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFilterValue::class);
         $this->apply(new DateFilter(), $this->expression([
             'type' => 'condition',
             'op' => 'eq',
@@ -243,7 +244,7 @@ final class BooleanExpressionsSqliteTest extends TestCase
 
     public function test_rejects_incomplete_numeric_ranges(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFilterValue::class);
         $this->apply(new NumberAdvancedFilter(), $this->expression([
             'type' => 'condition',
             'op' => 'bw',
@@ -253,7 +254,7 @@ final class BooleanExpressionsSqliteTest extends TestCase
 
     public function test_rejects_select_values_outside_the_server_allowlist(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidFilterValue::class);
         $this->apply(new SelectAdvancedFilter(['active', 'paused']), $this->expression([
             'type' => 'condition',
             'op' => 'eq',

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ReynoTECH\QueryBuilderCustom\Filters;
 
-use InvalidArgumentException;
+use ReynoTECH\QueryBuilderCustom\Exceptions\InvalidFilterValue;
 
 /**
  * Select filter with optional server-owned allowed values.
@@ -76,13 +76,13 @@ final class SelectAdvancedFilter extends BaseAdvancedFilter
 
         if (in_array($operator, ['in', 'nin'], true)) {
             if ($this->splitListValue($value) === []) {
-                throw new InvalidArgumentException("Select filter operator \"{$operator}\" requires at least one value.");
+                throw InvalidFilterValue::because("Select filter operator \"{$operator}\" requires at least one value.");
             }
             return;
         }
 
         if (is_array($value)) {
-            throw new InvalidArgumentException("Select filter operator \"{$operator}\" requires a scalar value.");
+            throw InvalidFilterValue::because("Select filter operator \"{$operator}\" requires a scalar value.");
         }
     }
 
@@ -96,7 +96,7 @@ final class SelectAdvancedFilter extends BaseAdvancedFilter
         $allowed = array_map(static fn (mixed $value): string => (string) $value, $this->allowedValues);
         foreach ($values as $value) {
             if (! in_array((string) $value, $allowed, true)) {
-                throw new InvalidArgumentException(sprintf('Select filter value "%s" is not allowed.', (string) $value));
+                throw InvalidFilterValue::because(sprintf('Select filter value "%s" is not allowed.', (string) $value));
             }
         }
     }
