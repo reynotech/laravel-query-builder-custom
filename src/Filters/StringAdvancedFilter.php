@@ -63,6 +63,9 @@ class StringAdvancedFilter extends BaseAdvancedFilter
             ],
             'in' => [
                 'op' => 'in'
+            ],
+            'nin' => [
+                'op' => 'not in'
             ]
         ];
     }
@@ -92,6 +95,8 @@ class StringAdvancedFilter extends BaseAdvancedFilter
                 $query->whereRaw(strtr($operation['string'], $occurrences));
             } else if ($operation['op'] === 'in') {
                 $query->whereIn($property, $this->splitListValue($value));
+            } else if ($operation['op'] === 'not in') {
+                $query->whereNotIn($property, $this->splitListValue($value));
             } else {
                 if (isset($operation['raw'])) {
                     $op = DB::raw($operation['op']);
@@ -121,9 +126,9 @@ class StringAdvancedFilter extends BaseAdvancedFilter
             return;
         }
 
-        if ($operator === 'in') {
+        if (in_array($operator, ['in', 'nin'], true)) {
             if ($this->splitListValue($value) === []) {
-                throw new InvalidArgumentException('String filter operator "in" requires at least one value.');
+                throw new InvalidArgumentException("String filter operator \"{$operator}\" requires at least one value.");
             }
             return;
         }

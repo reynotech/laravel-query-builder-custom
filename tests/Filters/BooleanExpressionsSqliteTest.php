@@ -167,6 +167,15 @@ final class BooleanExpressionsSqliteTest extends TestCase
         $this->assertSame(['Alpha', 'Beta'], $this->apply(new StringAdvancedFilter(), $string, 'name'));
     }
 
+    public function test_string_filter_takes_a_list_in_or_out(): void
+    {
+        $in = $this->expression(['type' => 'condition', 'op' => 'in', 'value' => ['Alpha', 'Gamma']]);
+        $notIn = $this->expression(['type' => 'condition', 'op' => 'nin', 'value' => ['Alpha', 'Gamma']]);
+
+        $this->assertSame(['Alpha', 'Gamma'], $this->apply(new StringAdvancedFilter(), $in, 'name'));
+        $this->assertSame(['Beta', 'Delta'], $this->apply(new StringAdvancedFilter(), $notIn, 'name'));
+    }
+
     public function test_rejects_operators_not_supported_by_the_concrete_filter(): void
     {
         $this->expectException(InvalidArgumentException::class);
